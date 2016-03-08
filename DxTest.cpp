@@ -2,6 +2,8 @@
 #define APPNAME "DirectX Sample Program"
 #include <d3d9.h>
 #include <d3dx9.h>
+#include <dinput.h>
+
 #include <string>
 
 #pragma once
@@ -11,6 +13,8 @@
 #pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"d3d9.lib")
 #pragma comment(lib,"d3dx9.lib")
+#pragma comment(lib,"dinput8.lib")
+
 #pragma comment(lib,"winmm.lib")
 
 #define SAFE_DELETE(p)  { if (p) { delete (p);     (p) = nullptr; } }
@@ -26,13 +30,16 @@ struct CUSTOMVERTEX
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
 HWND                    g_hWnd;
-LPDIRECT3D9             g_pD3D = nullptr;
-LPDIRECT3DDEVICE9       g_pDev = nullptr;
-LPDIRECT3DTEXTURE9      g_pTexture = nullptr;
-LPD3DXMESH              g_pMesh = nullptr;
-LPD3DXFONT              g_pFont = nullptr;
-LPDIRECT3DVERTEXBUFFER9 g_pVB = nullptr;
-LPD3DXSPRITE            g_pSprite = nullptr;
+LPDIRECT3D9             g_pD3D =      nullptr;
+LPDIRECT3DDEVICE9       g_pDev =      nullptr;
+LPDIRECT3DTEXTURE9      g_pTexture =  nullptr;
+LPD3DXMESH              g_pMesh =     nullptr;
+LPD3DXFONT              g_pFont =     nullptr;
+LPDIRECT3DVERTEXBUFFER9 g_pVB =       nullptr;
+LPD3DXSPRITE            g_pSprite =   nullptr;
+
+LPDIRECTINPUT8 g_pDInput = NULL;
+LPDIRECTINPUTDEVICE8 g_pDIDevice = NULL;
 
 D3DMATERIAL9            material;
 D3DLIGHT9               light;
@@ -106,6 +113,16 @@ HRESULT Init3DDev(HWND hwnd, LPDIRECT3D9 *d3d, LPDIRECT3DDEVICE9 *d3Device)
 
     }
   }
+
+  /*
+  if (FAILED(DirectInput8Create(NULL, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&g_pDInput, NULL))) {
+    return E_FAIL;
+  };
+
+  if (FAILED(g_pDInput->CreateDevice(GUID_SysKeyboard, NULL, NULL))){
+    return E_FAIL;
+  };
+  */
 
   if (FAILED(D3DXCreateTextureFromFile(g_pDev, g_imgfile, &g_pTexture)))
   {
