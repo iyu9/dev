@@ -19,7 +19,7 @@
 
 #define SAFE_DELETE(p)  { if (p) { delete (p);     (p) = nullptr; } }
 #define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p) = nullptr; } }
-#define EMSG(x)         MessageBox(NULL,x,"DirectX D3D",MB_OK);
+#define EMSG(x)         MessageBox(nullptr, x, "DirectX D3D", MB_OK);
 
 struct CUSTOMVERTEX
 {
@@ -29,7 +29,7 @@ struct CUSTOMVERTEX
 };
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
-HWND                    g_hWnd;
+HWND                    g_hWnd      = nullptr;
 LPDIRECT3D9             g_pD3D =      nullptr;
 LPDIRECT3DDEVICE9       g_pDev =      nullptr;
 LPDIRECT3DTEXTURE9      g_pTexture =  nullptr;
@@ -38,23 +38,45 @@ LPD3DXFONT              g_pFont =     nullptr;
 LPDIRECT3DVERTEXBUFFER9 g_pVB =       nullptr;
 LPD3DXSPRITE            g_pSprite =   nullptr;
 
-LPDIRECTINPUT8 g_pDInput = NULL;
-LPDIRECTINPUTDEVICE8 g_pDIDevice = NULL;
+LPDIRECTINPUT8 g_pDInput = nullptr;
+LPDIRECTINPUTDEVICE8 g_pDIDevice = nullptr;
 
 D3DMATERIAL9            material;
 D3DLIGHT9               light;
 D3DXVECTOR3             ViewForm(0.0f, 0.0f, -5.0f);
+
+D3DXVECTOR3             pos;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, UINT wParam, LONG lParam);
 
 char g_imgfile[] = "test.png";
 std::string g_message = ">HELLO";
 
+HRESULT InitDirectInput(HINSTANCE hInstance)
+{
+  if (FAILED(DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&g_pDInput, nullptr))) {
+    return E_FAIL;
+  };
+
+  if (FAILED(g_pDInput->CreateDevice(GUID_SysKeyboard, &g_pDIDevice, nullptr))){
+    return E_FAIL;
+  };
+
+  g_pDIDevice->SetDataFormat(&c_dfDIKeyboard);
+  g_pDIDevice->SetCooperativeLevel(g_hWnd, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+  g_pDIDevice->Acquire();
+
+  return S_OK;
+}
+
 HRESULT InitFont(HWND hWnd)
 {
   HRESULT hr = D3DXCreateFont(g_pDev, 24, 0, FW_HEAVY, 1, false, SHIFTJIS_CHARSET, OUT_TT_ONLY_PRECIS,
     ANTIALIASED_QUALITY, FF_DONTCARE, "ＭＳ ゴシック", &g_pFont);
-  if FAILED(hr){ return(E_FAIL); }
+
+  if FAILED(hr) {
+    return(E_FAIL);
+  }
   return S_OK;
 }
 
@@ -107,7 +129,7 @@ HRESULT Init3DDev(HWND hwnd, LPDIRECT3D9 *d3d, LPDIRECT3DDEVICE9 *d3Device)
 
       if (FAILED((*d3d)->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_REF, hwnd,
         D3DCREATE_SOFTWARE_VERTEXPROCESSING, &d3dpp, d3Device))) {
-        EMSG("Create Device Error");  
+        EMSG("Create Device Error");
         return E_FAIL;
       }
 
@@ -115,13 +137,15 @@ HRESULT Init3DDev(HWND hwnd, LPDIRECT3D9 *d3d, LPDIRECT3DDEVICE9 *d3Device)
   }
 
   /*
-  if (FAILED(DirectInput8Create(NULL, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&g_pDInput, NULL))) {
+  if (FAILED(DirectInput8Create(NULL, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&g_pDInput, NULL)))
+  {
     return E_FAIL;
-  };
+  }
 
-  if (FAILED(g_pDInput->CreateDevice(GUID_SysKeyboard, NULL, NULL))){
+  if (FAILED(g_pDInput->CreateDevice(GUID_SysKeyboard, NULL, NULL)))
+  {
     return E_FAIL;
-  };
+  }
   */
 
   if (FAILED(D3DXCreateTextureFromFile(g_pDev, g_imgfile, &g_pTexture)))
@@ -191,7 +215,65 @@ HRESULT Init3DDevices(void)
   return S_OK;
 }
 
-void SetupMatrices(void)
+void Input()
+{
+  HRESULT hr;
+  BYTE diKeyState[256];
+
+  hr = g_pDIDevice->GetDeviceState(256, diKeyState);
+
+  if (SUCCEEDED(hr))
+  {
+    if (diKeyState[DIK_LEFT] & 0x80)
+    {
+      g_message = "←";
+      pos.x -= 10;
+    }
+
+    if (diKeyState[DIK_RIGHT] & 0x80)
+    {
+      g_message = "→";
+      pos.x += 10;
+    }
+
+    if (diKeyState[DIK_UP] & 0x80)
+    {
+      g_message = "↑";
+      pos.y += 10;
+    }
+
+    if (diKeyState[DIK_DOWN] & 0x80)
+    {
+      g_message = "↓";
+      pos.y -= 10;
+    }
+
+    if (diKeyState[DIK_LSHIFT] & 0x80)
+    {
+      g_message = "SHIFT";
+    }
+
+    if (diKeyState[DIK_Z] & 0x80)
+    {
+      g_message = "Z";
+    }
+
+    if (diKeyState[DIK_X] & 0x80)
+    {
+      g_message = "X";
+    }
+
+    if (diKeyState[DIK_C] & 0x80)
+    {
+      g_message = "C";
+    }
+  }
+  else {
+    g_pDIDevice->Acquire();
+  }
+}
+
+void SetupMatrices()
 {
   RECT            rect;
   D3DXMATRIX      matWorld;
@@ -225,7 +307,7 @@ void Render(void)
   if (SUCCEEDED(g_pDev->BeginScene()))
   {
     TextDraw(g_pFont, g_message.c_str(), 0, 0);
-    TextureDraw(g_pSprite, g_pTexture, 0, 0, 1280, 720, 50, 50);
+    TextureDraw(g_pSprite, g_pTexture, 0 + pos.x, 0 - pos.y, 1280 + pos.x, 720 + pos.y, 50, 50);
     g_pDev->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));
     //g_pDev->SetTexture(0, g_pTexture);
 
@@ -256,46 +338,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, UINT wParam, LONG lParam)
     case WM_DESTROY:
       PostQuitMessage(0);
       return 0L;
-
-    case WM_KEYDOWN:
-      if (wParam == VK_SHIFT)
-      {
-        g_message = "SHIFT";
-      }
-
-      if (wParam == 0x5A)
-      {
-        g_message = "Z";
-      }
-
-      if (wParam == 0x58)
-      {
-        g_message = "X";
-      }
-
-      if (wParam == 0x43)
-      {
-        g_message = "C";
-      }
-
-      if (wParam == VK_UP)
-      {
-        g_message = "KEY_UP";
-      }
-      if (wParam == VK_DOWN)
-      {
-        g_message = "KEY_DOWN";
-      }
-      if (wParam == VK_RIGHT)
-      {
-        g_message = "KEY_RIGHT";
-      }
-      if (wParam == VK_LEFT)
-      {
-        g_message = "KEY_LEFT";
-      }
-
-      break;
   }
   return DefWindowProc(hWnd, msg, wParam, lParam);
 }
@@ -329,8 +371,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int)
     return FALSE;
   }
 
+  InitDirectInput(hInst);
   InitFont(g_hWnd);
   InitVertexBuffer();
+
   ShowWindow(g_hWnd, SW_SHOWDEFAULT);
   UpdateWindow(g_hWnd);
 
@@ -344,6 +388,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int)
     }
     else
     {
+      Input();
       Render();
     }
   }
