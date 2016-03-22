@@ -3,7 +3,7 @@
 #include <d3d9.h>
 #include <d3dx9.h>
 #include <dinput.h>
-
+#include <dsound.h>
 #include <string>
 
 #pragma once
@@ -14,6 +14,7 @@
 #pragma comment(lib,"d3d9.lib")
 #pragma comment(lib,"d3dx9.lib")
 #pragma comment(lib,"dinput8.lib")
+#pragma comment(lib,"dsound.lib")
 
 #pragma comment(lib,"winmm.lib")
 
@@ -37,20 +38,61 @@ LPD3DXMESH              g_pMesh =     nullptr;
 LPD3DXFONT              g_pFont =     nullptr;
 LPDIRECT3DVERTEXBUFFER9 g_pVB =       nullptr;
 LPD3DXSPRITE            g_pSprite =   nullptr;
+LPD3DXLINE              g_pLine =      nullptr;
 
 LPDIRECTINPUT8 g_pDInput = nullptr;
 LPDIRECTINPUTDEVICE8 g_pDIDevice = nullptr;
+
+LPDIRECTSOUND g_pDS = nullptr;
 
 D3DMATERIAL9            material;
 D3DLIGHT9               light;
 D3DXVECTOR3             ViewForm(0.0f, 0.0f, -5.0f);
 
 D3DXVECTOR3             pos;
+D3DXVECTOR3             enemy_pos;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, UINT wParam, LONG lParam);
 
 char g_imgfile[] = "test.png";
-std::string g_message = ">HELLO";
+std::string g_message;
+std::string g_debmessage;
+
+bool IsCollision2d(D3DXVECTOR3 a, D3DXVECTOR3 b) {
+  if ((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) <= 0) {
+    g_message = a.x;
+    return true;
+  }
+  
+  return false;
+}
+
+HRESULT InitDirectSound(HWND hWnd)
+{
+  if (FAILED(DirectSoundCreate(nullptr, &g_pDS, nullptr))) {
+    return E_FAIL;
+  };
+
+  /*
+  g_pDS->SetCooperativeLevel(hWnd, DSSCL_NORMAL);
+
+  DSBUFFERDESC DSBufferDesc;
+  IDirectSoundBuffer *ptmpBuf = 0;
+  IDirectSoundBuffer8 *pDSBuffer;
+  g_pDS->CreateSoundBuffer(&DSBufferDesc, &ptmpBuf, NULL);
+  ptmpBuf->QueryInterface(IID_IDirectSoundBuffer8, (void**)&pDSBuffer);
+  ptmpBuf->Release();
+
+  void* pWaveData;
+  LPVOID lpvWrite = 0;
+  DWORD dwLength = 0;
+  if (DS_OK == pDSBuffer->Lock(0, 0, &lpvWrite, &dwLength, NULL, NULL, DSBLOCK_ENTIREBUFFER)) {
+    memcpy(lpvWrite, pWaveData, dwLength);
+    pDSBuffer->Unlock(lpvWrite, dwLength, NULL, 0);
+  }
+  */
+  return S_OK;
+}
 
 HRESULT InitDirectInput(HINSTANCE hInstance)
 {
@@ -78,6 +120,53 @@ HRESULT InitFont(HWND hWnd)
     return(E_FAIL);
   }
   return S_OK;
+}
+
+void LineDraw(LPD3DXLINE pLine)
+{
+  D3DCOLOR color = 0xffffffff;
+
+  const int BASE = 250;
+  const int NEXT = 300;
+
+  float width = 400;
+  float height = 400;
+
+  float k = 0.48;
+
+  D3DXVECTOR2 vec[] = {
+
+    /*
+    D3DXVECTOR2(BASE + pos.x, BASE - pos.y),
+    D3DXVECTOR2(NEXT + pos.x, BASE - pos.y),
+    D3DXVECTOR2(NEXT + pos.x, NEXT - pos.y),
+    D3DXVECTOR2(BASE + pos.x, BASE - pos.y),
+    D3DXVECTOR2(BASE + pos.x, BASE - pos.y),
+    D3DXVECTOR2(BASE + pos.x, NEXT - pos.y),
+    D3DXVECTOR2(NEXT + pos.x, NEXT - pos.y),
+    */
+
+    //For 3D
+    D3DXVECTOR2(k * width, k * height),
+    D3DXVECTOR2(0, 0),
+    D3DXVECTOR2(width, 0),
+    D3DXVECTOR2(k * width, k * height),
+
+    D3DXVECTOR2(k * width, k * height),
+    D3DXVECTOR2(0, height),
+    D3DXVECTOR2(width, height),
+    D3DXVECTOR2(k * width, k * height),
+
+  };
+
+  pLine->Begin();
+  pLine->Draw(vec, sizeof(vec)/sizeof(D3DXVECTOR2) , color);
+  pLine->End();
+}
+
+void RectDraw()
+{
+  //
 }
 
 void TextDraw(LPD3DXFONT pFont, const char* text, int X, int Y)
@@ -158,6 +247,11 @@ HRESULT Init3DDev(HWND hwnd, LPDIRECT3D9 *d3d, LPDIRECT3DDEVICE9 *d3Device)
     return E_FAIL;
   }
 
+  if (FAILED(D3DXCreateLine(g_pDev, &g_pLine)))
+  {
+    return E_FAIL;
+  }
+
   return S_OK;
 }
 
@@ -165,13 +259,20 @@ HRESULT InitVertexBuffer()
 {
   CUSTOMVERTEX Vertices[] =
   {
+    /*
     { 50.00f, 50.00f, 0.5f, 1.0f, 0xFFFFFFFF, 0.0f, 0.0f },
     { 100.0f, 50.00f, 0.5f, 1.0f, 0xFFFFFFFF, 1.0f, 0.0f },
     { 100.0f, 100.0f, 0.5f, 1.0f, 0xFFFFFFFF, 1.0f, 1.0f },
     { 50.00f, 100.0f, 0.5f, 1.0f, 0xFFFFFFFF, 0.0f, 1.0f }
+    */
+
+    { 50.00f, 100.00f, 50.0f, 1.0f, 0xFFFFFFFF, 0.0f, 0.0f },
+    { 100.0f, 100.00f, 50.0f, 1.0f, 0xFFFFFFFF, 1.0f, 0.0f },
+    { 100.0f, 100.0f, 100.0f, 1.0f, 0xFFFFFFFF, 1.0f, 1.0f },
+    { 50.00f, 100.0f, 100.0f, 1.0f, 0xFFFFFFFF, 0.0f, 1.0f }
   };
 
-  if (FAILED(g_pDev->CreateVertexBuffer(3 * sizeof(CUSTOMVERTEX), 0, D3DFVF_CUSTOMVERTEX,
+  if (FAILED(g_pDev->CreateVertexBuffer(4 * sizeof(CUSTOMVERTEX), 0, D3DFVF_CUSTOMVERTEX,
     D3DPOOL_DEFAULT, &g_pVB, nullptr)))
   {
     return E_FAIL;
@@ -179,7 +280,7 @@ HRESULT InitVertexBuffer()
 
   void* pVertices;
   if (FAILED(g_pVB->Lock(0, sizeof(Vertices), (void**)&pVertices, 0)))
-  { 
+  {
     return E_FAIL; 
   }
   memcpy(pVertices, Vertices, sizeof(Vertices));
@@ -196,6 +297,8 @@ HRESULT Init3DDevices(void)
     return E_FAIL;
   }
 
+  //Teapot
+  /*
   D3DXCreateTeapot(g_pDev, &g_pMesh, nullptr);
 
   material.Diffuse.r = material.Diffuse.g = 1.0f;
@@ -212,11 +315,14 @@ HRESULT Init3DDevices(void)
   light.Ambient.r = light.Ambient.g = light.Ambient.b = 0.5f;
   light.Direction = D3DXVECTOR3(1, -2, 1);
 
+  */
   return S_OK;
 }
 
 void Input()
 {
+  const int UPDATE_DIST = 4;
+
   HRESULT hr;
   BYTE diKeyState[256];
 
@@ -226,26 +332,26 @@ void Input()
   {
     if (diKeyState[DIK_LEFT] & 0x80)
     {
-      g_message = "←";
-      pos.x -= 10;
+      g_message = "LEFT";
+      pos.x -= UPDATE_DIST;
     }
 
     if (diKeyState[DIK_RIGHT] & 0x80)
     {
-      g_message = "→";
-      pos.x += 10;
+      g_message = "RIGHT";
+      pos.x += UPDATE_DIST;
     }
 
     if (diKeyState[DIK_UP] & 0x80)
     {
-      g_message = "↑";
-      pos.y += 10;
+      g_message = "UP";
+      pos.y += UPDATE_DIST;
     }
 
     if (diKeyState[DIK_DOWN] & 0x80)
     {
-      g_message = "↓";
-      pos.y -= 10;
+      g_message = "DOWN";
+      pos.y -= UPDATE_DIST;
     }
 
     if (diKeyState[DIK_LSHIFT] & 0x80)
@@ -256,11 +362,13 @@ void Input()
     if (diKeyState[DIK_Z] & 0x80)
     {
       g_message = "Z";
+      pos.z += UPDATE_DIST;
     }
 
     if (diKeyState[DIK_X] & 0x80)
     {
       g_message = "X";
+      pos.z -= UPDATE_DIST;
     }
 
     if (diKeyState[DIK_C] & 0x80)
@@ -294,10 +402,12 @@ void SetupMatrices()
   D3DXMatrixPerspectiveFovLH(&matProj, D3DXToRadian(45.0f), (float)rect.right / (float)rect.bottom, 1, 50);
   g_pDev->SetTransform(D3DTS_PROJECTION, &matProj);
   g_pDev->SetRenderState(D3DRS_AMBIENT, 0x00080808);
-
+  
   g_pDev->SetLight(0, &light);
   g_pDev->LightEnable(0, TRUE);
   g_pDev->SetMaterial(&material);
+  //test
+  g_pDev->SetTexture(0, g_pTexture);
 }
 
 void Render(void)
@@ -307,13 +417,18 @@ void Render(void)
   if (SUCCEEDED(g_pDev->BeginScene()))
   {
     TextDraw(g_pFont, g_message.c_str(), 0, 0);
-    TextureDraw(g_pSprite, g_pTexture, 0 + pos.x, 0 - pos.y, 1280 + pos.x, 720 + pos.y, 50, 50);
-    g_pDev->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));
-    //g_pDev->SetTexture(0, g_pTexture);
+    TextDraw(g_pFont, g_debmessage.c_str(), 0, 50);
+    LineDraw(g_pLine);
 
+    /*
+    TextureDraw(g_pSprite, g_pTexture, -200 + pos.x, 0 - pos.y, 1280 + pos.x, 720 + pos.y, 50, 50);
+    */
+
+    /*
+    g_pDev->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));
     SetupMatrices();
     g_pMesh->DrawSubset(0);
-
+    */
     g_pDev->EndScene();
   }
 
@@ -322,12 +437,17 @@ void Render(void)
 
 void Release(void)
 {
-  SAFE_RELEASE(g_pSprite);
-  SAFE_RELEASE(g_pFont);
+  SAFE_RELEASE(g_pD3D);
+  SAFE_RELEASE(g_pDev);
   SAFE_RELEASE(g_pTexture);
   SAFE_RELEASE(g_pMesh);
-  SAFE_RELEASE(g_pDev);
-  SAFE_RELEASE(g_pD3D);
+  SAFE_RELEASE(g_pFont);
+  SAFE_RELEASE(g_pVB);
+  SAFE_RELEASE(g_pSprite);
+  SAFE_RELEASE(g_pLine);
+  SAFE_RELEASE(g_pDInput);
+  SAFE_RELEASE(g_pDIDevice);
+  SAFE_RELEASE(g_pDS);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, UINT wParam, LONG lParam)
@@ -363,7 +483,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int)
   rect.left = 0;
 
   g_hWnd = CreateWindowEx(0, APPNAME, APPNAME, WS_OVERLAPPEDWINDOW,
-    400, 400, 800, 800,
+    400, 400, 400, 400,
     nullptr, nullptr, hInst, nullptr);
 
   if (FAILED(Init3DDevices()))
