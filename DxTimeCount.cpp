@@ -1,7 +1,14 @@
 #define DEBUG
 #define APPNAME "DirectX Sample Program"
+
+//dx9
 #include <d3d9.h>
 #include <d3dx9.h>
+
+//dx11
+#include <d3d11.h>
+#include <d3dx11.h>
+
 #include <dinput.h>
 
 #include <string>
@@ -31,12 +38,27 @@ struct CUSTOMVERTEX
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
 HWND                    g_hWnd = nullptr;
+
+//9
 LPDIRECT3D9             g_pD3D = nullptr;
+//11
+ID3D11DepthStencilView* g_pStencilView = nullptr;
+ID3D11DepthStencilState* g_pStencilState = nullptr;
+ID3D11DeviceContext* g_pDeviceContext = nullptr;
+
+IDXGISwapChain* g_pGISwapChain = nullptr;
+
+//9
 LPDIRECT3DDEVICE9       g_pDev = nullptr;
+//11
+//ID3D11Device*		g_pDev = nullptr;
 LPDIRECT3DTEXTURE9      g_pTexture = nullptr;
 LPD3DXMESH              g_pMesh = nullptr;
 LPD3DXFONT              g_pFont = nullptr;
+//9
 LPDIRECT3DVERTEXBUFFER9 g_pVB = nullptr;
+//11
+//ID3D11VertexShader*		g_pVB = nullptr;
 LPD3DXSPRITE            g_pSprite = nullptr;
 
 LPDIRECTINPUT8 g_pDInput = nullptr;
@@ -59,6 +81,8 @@ std::string g_message = "「私はあなた。何がしたい？」";
 std::string g_const_message = g_message;
 int message_index = 0;
 
+std::string dbg_cam;
+
 //window param
 int g_width = 800;
 int g_height = 680;
@@ -66,6 +90,62 @@ int g_height = 680;
 //timer
 float time = 0;
 float CurrentTime = time;
+
+HRESULT CreateShaderFile(char* filename) {
+/*
+	HRESULT hr;
+	ID3DBlob *pBlob;
+
+	UINT nCompileFlag = D3D10_SHADER_DEBUG |
+		D3D10_SHADER_SKIP_OPTIMIZATION |
+		D3D10_SHADER_ENABLE_STRICTNESS |
+		D3D10_SHADER_PACK_MATRIX_COLUMN_MAJOR;
+
+	hr = D3DX11CompileFromFile(
+		filename,
+		0,
+		0,
+		"VS",
+		"vs_4_0",
+		nCompileFlag,
+		0,
+		0L,
+		&pBlob,
+		0,
+		0);
+
+	if (FAILED(hr)) 
+	{
+		return E_FAIL;
+	}
+
+	hr = g_pDev->CreateVertexShader(
+		pBlob->GetBufferPointer(),
+		pBlob->GetBufferSize(),
+		0,
+		&m_lpVertexShader);
+
+	if (FAILED(hr)) 
+	{
+		return E_FAIL;
+	}
+
+	hr = m_lpDirect3DDevice->CreateInputLayout(
+		m_lpInputElementDesc,
+		m_nInputElementDescCountSize,
+		pBlob->GetBufferPointer(),
+		pBlob->GetBufferSize(),
+		&m_lpInputLayout);
+
+	if (FAILED(hr)) {
+		return E_FAIL;
+	}
+	pBlob->Release();
+	pBlob = 0;
+
+	*/
+	return S_OK;
+}
 
 HRESULT InitDirectInput(HINSTANCE hInstance)
 {
@@ -95,19 +175,24 @@ HRESULT InitFont(HWND hWnd)
 	return S_OK;
 }
 
+//2Dテキスト描画
+//前提条件：D3DXCreateFont()によるフォントの生成が必須
 void TextDraw(LPD3DXFONT pFont, const char* text, int X, int Y)
 {
 	RECT rect = { X, Y, 0, 0 };
 	pFont->DrawText(nullptr, text, -1, &rect, DT_LEFT | DT_NOCLIP, D3DCOLOR_ARGB(255, 255, 255, 255));
 }
 
-void TextureDraw(LPD3DXSPRITE &pSprite, LPDIRECT3DTEXTURE9 &pTex, int SrcX, int SrcY, int SrcW, int SrcH, int DstX, int DstY)
+//2Dテクスチャ描画
+//前提条件：CreateTextureFromFile(), D3DXCreateSprite()によるスプライトとテクスチャの生成が必須
+void TextureDraw(LPD3DXSPRITE &pSprite, LPDIRECT3DTEXTURE9 &pTexture, int SrcX, int SrcY, int SrcW, int SrcH, int DstX, int DstY)
 {
 	RECT rect = { SrcX, SrcY, SrcW, SrcH };
 	D3DXVECTOR3 Center(0, 0, 0);
 	D3DXVECTOR3 Pos((float)DstX, (float)DstY, 0);
+
 	pSprite->Begin(D3DXSPRITE_ALPHABLEND);
-	pSprite->Draw(pTex, &rect, &Center, &Pos, 0xffffffff);
+	pSprite->Draw(pTexture, &rect, &Center, &Pos, 0xffffffff);
 	pSprite->End();
 }
 
@@ -175,21 +260,19 @@ HRESULT Init3DDev(HWND hwnd, LPDIRECT3D9 *d3d, LPDIRECT3DDEVICE9 *d3Device)
 	return S_OK;
 }
 
+//3Dポリゴン表示用の頂点バッファを設定する
+//頂点定義->頂点バッファ作成->頂点情報の保持？
 HRESULT SetVertexBuffer()
 {
+	const int W = 400;
+	const int H = 400;
+
 	CUSTOMVERTEX Vertices[] =
-	{
-		{ g_width / 2 + pos.x, 0.0f + pos.y + 10 * time, 0.0f, 1.0f, 0xFFFFFFFF, 1.0f, 1.0f },
+	{		
+		{ g_width / 2 + pos.x, 0.0f + pos.y + 10 * time, 0.0f, 1.0f, 0xFFF00FFF, 0.0f, 0.0f },
 		{ g_width - 20 *  time, g_height / 2, 0.0f, 1.0f, 0xFFFFFFFF, 1.0f, 0.0f },
 		{ 0.0f + 20 * time, g_height / 2, 0.0f, 1.0f, 0xFFFFFFFF, 0.0f, 1.0f },
-		{ g_width / 2, g_height - 10 * time, 0.0f, 1.0f, 0xFFFFFFFF, 0.0f, 1.0f },
-
-		/*
-		{ g_width / 2, 0.0f + pos.y, 10.0f, 1.0f, 0xFFFFFFFF, 1.0f, 1.0f },
-		{ g_width, g_height / 2, 0.0f, 10.0f, 0xFFFFFFFF, 1.0f, 0.0f },
-		{ 0.0f, g_height / 2, 0.0f, 10.0f, 0xFFFFFFFF, 0.0f, 1.0f },
-		{ g_width / 2, g_height, 0.0f, 10.0f, 0xFFFFFFFF, 0.0f, 1.0f },
-		*/
+		{ g_width / 2, g_height - 10 * time, 0.0f, 1.0f, 0xFFFFFFFF, 1.0f, 1.0f },
 	};
 
 	if (FAILED(g_pDev->CreateVertexBuffer(sizeof(Vertices), 0, D3DFVF_CUSTOMVERTEX,
@@ -216,9 +299,6 @@ HRESULT Init3DDevices(void)
 		return E_FAIL;
 	}
 
-	/*
-	D3DXCreateTeapot(g_pDev, &g_pMesh, nullptr);
-	*/
 	material.Diffuse.r = material.Diffuse.g = 1.0f;
 	material.Diffuse.b = 0.0f;
 	material.Ambient.r = material.Ambient.g = material.Ambient.b = 0.5f;
@@ -245,6 +325,26 @@ void Input()
 
 	if (SUCCEEDED(hr))
 	{
+		if (diKeyState[DIKEYBOARD_W] & 0x80) 
+		{
+			
+		}
+
+		if (diKeyState[DIKEYBOARD_A] & 0x80)
+		{
+
+		}
+
+		if (diKeyState[DIKEYBOARD_S] & 0x80)
+		{
+
+		}
+
+		if (diKeyState[DIKEYBOARD_D] & 0x80)
+		{
+
+		}
+
 		if (diKeyState[DIK_LEFT] & 0x80)
 		{
 			g_message = "←";
@@ -318,7 +418,7 @@ void SetupMatrices()
 	g_pDev->SetRenderState(D3DRS_AMBIENT, 0x00080808);
 
 	g_pDev->SetLight(0, &light);
-	g_pDev->LightEnable(0, TRUE);
+	g_pDev->LightEnable(0, FALSE);
 	g_pDev->SetMaterial(&material);
 }
 
@@ -328,8 +428,8 @@ void Render(void)
 
 	if (SUCCEEDED(g_pDev->BeginScene()))
 	{
-		time += 0.001 * timeGetTime() - CurrentTime;
-		CurrentTime = 0.001 * timeGetTime();
+		time += 0.001f * timeGetTime() - CurrentTime;
+		CurrentTime = 0.001f * timeGetTime();
 
 		g_message = std::to_string(time);
 
@@ -356,14 +456,19 @@ void Render(void)
 		//}
 
 		TextDraw(g_pFont, g_message.c_str(), 0, 0);
+		TextDraw(g_pFont, "test", 0, 200);
+
 		//TextureDraw(g_pSprite, g_pTexture, 0 + pos.x, 0 - pos.y, 1280 + pos.x, 720 + pos.y, 50, 50);
+		//TextureDraw(g_pSprite, g_pTexture, 0, 0, 1280, 720, 50, 50);
 		g_pDev->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));
-		//g_pDev->SetTexture(0, g_pTexture);
 
 		SetupMatrices();
 
 		//update vert test
 		SetVertexBuffer();
+
+		//set texture
+		g_pDev->SetTexture(0, g_pTexture);
 
 		//g_pMesh->DrawSubset(0);
 		g_pDev->SetFVF(D3DFVF_CUSTOMVERTEX);
@@ -389,11 +494,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, UINT wParam, LONG lParam)
 {
 	switch (msg)
 	{
-	case WM_CLOSE:
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0L;
+		case WM_CLOSE:
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			return 0L;
 	}
+
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
@@ -444,7 +550,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int)
 	ShowWindow(g_hWnd, SW_SHOWDEFAULT);
 	UpdateWindow(g_hWnd);
 
-	CurrentTime = 0.001 * timeGetTime();
+	CurrentTime = 0.001f * timeGetTime();
 
 	ZeroMemory(&msg, sizeof(msg));
 	while (msg.message != WM_QUIT)
